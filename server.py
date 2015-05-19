@@ -1,8 +1,13 @@
 import swi
 import os
 import json
+import StringIO
 
+import matplotlib
+matplotlib.use('Agg')
+import pylab
 import bigwig
+import numpy as np
 
 bigwigs = {}
 
@@ -34,7 +39,8 @@ class Server(swi.SimpleWebInterface):
 
         parts = []
         for c in sorted(bw.sizes.keys()):
-            part = '<li><a href="query?name=%s&c=%s&start=%d&end=%d&count=%d">%s</a> (length=%d)</li>' % (name, c, 0, bw.sizes[c], 100, c, bw.sizes[c])
+            params = 'name=%s&c=%s&start=%d&end=%d&count=%d' % (name, c, 0, bw.sizes[c], 100)
+            part = '<li><a href="query?%s">%s</a> (length=%d) (<a href="img?%s">img</a>)</li>' % (params, c, bw.sizes[c], params)
             parts.append(part)
 
         page = '''
@@ -54,6 +60,30 @@ class Server(swi.SimpleWebInterface):
         q = bw.query(c, start, end, count)
 
         return json.dumps(q)
+
+    def swi_img(self, name, c, start, end, count):
+        start = int(start)
+        end = int(end)
+        count = int(count)
+        bw = get_bigwig(name)
+
+        q = bw.query(c, start, end, count)
+
+        img = StringIO.StringIO()
+        pylab.figure()
+
+        loc = np.linspace(start, end, count)
+        mean = [x['mean'] for x in q]
+        maximum = [x['max'] for x in q]
+        minimum = [x['min'] for x in q]
+
+
+        pylab.fill_between(loc, minimum, maximum, color='#888888')
+        pylab.plot(loc, mean, color='k')
+        pylab.savefig(img, dpi=80, format='png')
+        return 'image/png', img.getvalue()
+
+
 
 
 
